@@ -359,6 +359,23 @@ public static function randSole($type = 0,$length = 18,$time=0){
             return preg_replace($minArr,'***', $val);
         }
     }
+    
+    /**
+     * CSV导出
+     *
+     * @param [type] $filename
+     * @param [type] $data
+     * @return void
+     */
+    function export_csv($filename,$data)   
+    {   
+        header("Content-type:text/csv");   
+        header("Content-Disposition:attachment;filename=".$filename);   
+        header('Cache-Control:must-revalidate,post-check=0,pre-check=0');   
+        header('Expires:0');   
+        header('Pragma:public');   
+        echo $data;die;   
+    } 
 
     /**
      * 获取描述信息
@@ -367,7 +384,7 @@ public static function randSole($type = 0,$length = 18,$time=0){
      */
     public function  getDesc($val){
 
-        return mb_substr(noHtml($val), 0, 60)."...";//截取80个汉字
+        return mb_substr($this->noHtml($val), 0, 60)."...";//截取80个汉字
 
     }
     /**
@@ -693,5 +710,555 @@ public static function randSole($type = 0,$length = 18,$time=0){
         return $message;
     }
 
+        /*
+    * 经度纬度 转换成距离
+    * $lat1 $lng1 是 数据的经度纬度
+    * $lat2,$lng2 是获取定位的经度纬度
+    */
+
+    public function rad($d) {
+        return $d * 3.1415926535898 / 180.0;
+    }
+
+    public function getDistanceNone($lat1, $lng1, $lat2, $lng2) {
+        $EARTH_RADIUS = 6378.137;
+        $radLat1 = $this->rad($lat1);
+        //echo $radLat1;  
+        $radLat2 = $this->rad($lat2);
+        $a = $radLat1 - $radLat2;
+        $b = $this->rad($lng1) - $this->rad($lng2);
+        $s = 2 * asin(sqrt(pow(sin($a / 2), 2) + cos($radLat1) * cos($radLat2) * pow(sin($b / 2), 2)));
+        $s = $s * $EARTH_RADIUS;
+        $s = round($s * 10000);
+        return $s;
+    }
+
+    //外卖专用检测地址
+    public function getAddrDistance($lat1, $lng1, $lat2, $lng2) {
+        $s = $this->getDistanceNone($lat1, $lng1, $lat2, $lng2);
+        $s = $s / 10000;
+        return round($s * 1000);
+    }
+
+
+
+    public function getDistance($lat1, $lng1, $lat2, $lng2) {
+        $s = $this->getDistanceNone($lat1, $lng1, $lat2, $lng2);
+        $s = $s / 10000;
+        if ($s < 1) {
+            $s = round($s * 1000);
+            $s.='m';
+        } else {
+            $s = round($s, 2);
+            $s.='km';
+        }
+        return $s;
+    }
+
+    public function getDistanceCN($lat1, $lng1, $lat2, $lng2) {
+        $s = $this->getDistanceNone($lat1, $lng1, $lat2, $lng2);
+        $s = $s / 10000;
+        if ($s < 1) {
+            $s = round($s * 1000);
+            $s.='米';
+        } else {
+            $s = round($s, 2);
+            $s.='千米';
+        }
+        return $s;
+    }
+
+    //获取IP返回地址的函数
+    public function IpToArea($_ip) {
+        static $IpLocation;
+        if(empty($IpLocation)){
+            import('IpLocation'); // 
+            $IpLocation = new IpLocation('UTFWry.dat'); // 实例化类 参数表示IP地址库文件
+        }
+        $arr = $IpLocation->getlocation($_ip);
+    
+        return $arr['country'] . $arr['area'];
+    }
+
+    /**
+     * 过滤不安全的HTML代码
+     */
+    public function SecurityEditorHtml($str) {
+        $farr = array(
+            "/\s+/", //过滤多余的空白 
+            "/<(\/?)(script|i?frame|style|html|body|title|link|meta|\?|\%)([^>]*?)>/isU",
+            "/(<[^>]*)on[a-zA-Z]+\s*=([^>]*>)/isU"
+        );
+        $tarr = array(
+            " ",
+            "＜\\1\\2\\3＞",
+            "\\1\\2",
+        );
+        $str = preg_replace($farr, $tarr, $str);
+        return $str;
+    }
+    /**
+     * 判断一个字符串是否是一个Email地址
+     *
+     * @param string $string
+     * @return boolean
+     */
+    public function isEmail($string) {
+        return (boolean) preg_match('/^[a-z0-9.\-_]{2,64}@[a-z0-9]{2,32}(\.[a-z0-9]{2,5})+$/i', $string);
+    }
+    
+    /**
+     * 判断输入的字符串是否是一个合法的手机号(仅限中国大陆)
+     *
+     * @param string $string
+     * @return boolean
+     */
+
+
+    public function isMobile($string) {
+        if(!is_numeric($string)){
+            return false;
+        }
+        if(!ctype_digit($string)){
+            return false;
+        }
+        if(11 != strlen($string)){
+            return false;
+        }
+        if($string[0] != 1){
+            return false;
+        }
+        if(preg_match('/^1[34578]{1}\d{9}$/', $string)){
+            return true;
+        }
+        return false;
+    }
+
+
+
+    /**
+     * 判断输入的字符串是否是一个合法的QQ
+     *
+     * @param string $string
+     * @return boolean
+     */
+    public function isQQ($string) {
+        if (ctype_digit($string)) {
+            $len = strlen($string);
+            if ($len < 5 || $len > 13)
+                return false;
+            return true;
+        }
+        return $this->isEmail($string);
+    }
+
+    /**
+     * 是否是图片
+     *
+     * @param [string] $fileName
+     * @return boolean
+     */
+    public function isImage($fileName) {
+        $ext = explode('.', $fileName);
+        $ext_seg_num = count($ext);
+        if ($ext_seg_num <= 1)
+            return false;
+    
+        $ext = strtolower($ext[$ext_seg_num - 1]);
+        $nort = in_array($ext, array('jpeg', 'jpg', 'png', 'gif'));
+        $hext = explode('?', $ext);
+        $httt = in_array($hext[0], array('jpeg', 'jpg', 'png', 'gif'));
+        if($nort || $httt){
+            return true;
+        }else{
+            return false;
+        }
+    }
+    /**
+     * 字符串截取，支持中文和其他编码
+     * @static
+     * @access public
+     * @param string $str 需要转换的字符串
+     * @param string $start 开始位置
+     * @param string $length 截取长度
+     * @param string $charset 编码格式
+     * @param string $suffix 截断显示字符
+     * @return string
+     */
+    function msubstr($str, $start = 0, $length, $charset = "utf-8", $suffix = true) {
+        if (function_exists("mb_substr"))
+            $slice = mb_substr($str, $start, $length, $charset);
+        elseif (function_exists('iconv_substr')) {
+            $slice = iconv_substr($str, $start, $length, $charset);
+            if (false === $slice) {
+                $slice = '';
+            }
+        } else {
+            $re['utf-8'] = "/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xff][\x80-\xbf]{3}/";
+            $re['gb2312'] = "/[\x01-\x7f]|[\xb0-\xf7][\xa0-\xfe]/";
+            $re['gbk'] = "/[\x01-\x7f]|[\x81-\xfe][\x40-\xfe]/";
+            $re['big5'] = "/[\x01-\x7f]|[\x81-\xfe]([\x40-\x7e]|\xa1-\xfe])/";
+            preg_match_all($re[$charset], $str, $match);
+            $slice = join("", array_slice($match[0], $start, $length));
+        }
+        return $suffix ? $slice . '...' : $slice;
+    }
+
+    /**
+     * 检查字符串是否是UTF8编码
+     * @param string $string 字符串
+     * @return Boolean
+     */
+    public function is_utf8($string) {
+        return preg_match('%^(?:
+            [\x09\x0A\x0D\x20-\x7E]            # ASCII
+        | [\xC2-\xDF][\x80-\xBF]             # non-overlong 2-byte
+        |  \xE0[\xA0-\xBF][\x80-\xBF]        # excluding overlongs
+        | [\xE1-\xEC\xEE\xEF][\x80-\xBF]{2}  # straight 3-byte
+        |  \xED[\x80-\x9F][\x80-\xBF]        # excluding surrogates
+        |  \xF0[\x90-\xBF][\x80-\xBF]{2}     # planes 1-3
+        | [\xF1-\xF3][\x80-\xBF]{3}          # planes 4-15
+        |  \xF4[\x80-\x8F][\x80-\xBF]{2}     # plane 16
+        )*$%xs', $string);
+    }
+
+    /**
+     * 代码加亮
+     * @param String  $str 要高亮显示的字符串 或者 文件名
+     * @param Boolean $show 是否输出
+     * @return String
+     */
+    public function highlight_code($str, $show = false) {
+        if (file_exists($str)) {
+            $str = file_get_contents($str);
+        }
+        $str = stripslashes(trim($str));
+        $str = str_replace(array('&lt;', '&gt;'), array('<', '>'), $str);
+        $str = str_replace(array('&lt;?php', '?&gt;', '\\'), array('phptagopen', 'phptagclose', 'backslashtmp'), $str);
+        $str = '<?php //tempstart' . "\n" . $str . '//tempend ?>'; // <?
+        $str = highlight_string($str, TRUE);
+        if (abs(phpversion()) < 5) {
+            $str = str_replace(array('<font ', '</font>'), array('<span ', '</span>'), $str);
+            $str = preg_replace('#color="(.*?)"#', 'style="color: \\1"', $str);
+        }
+        $str = preg_replace("#\<code\>.+?//tempstart\<br />\</span\>#is", "<code>\n", $str);
+        $str = preg_replace("#\<code\>.+?//tempstart\<br />#is", "<code>\n", $str);
+        $str = preg_replace("#//tempend.+#is", "</span>\n</code>", $str);
+        $str = str_replace(array('phptagopen', 'phptagclose', 'backslashtmp'), array('&lt;?php', '?&gt;', '\\'), $str); //<?
+        $line = explode("<br />", rtrim(ltrim($str, '<code>'), '</code>'));
+        $result = '<div class="code"><ol>';
+        foreach ($line as $key => $val) {
+            $result .= '<li>' . $val . '</li>';
+        }
+        $result .= '</ol></div>';
+        $result = str_replace("\n", "", $result);
+        if ($show !== false) {
+            echo($result);
+        } else {
+            return $result;
+        }
+    }
+
+    //输出安全的html
+    public function h($text, $tags = null) {
+        $text = trim($text);
+        $text = preg_replace('/<!--?.*-->/', '', $text);
+        $text = preg_replace('/<\?|\?' . '>/', '', $text);
+        $text = preg_replace('/<script?.*\/script>/', '', $text);
+        $text = str_replace('[', '&#091;', $text);
+        $text = str_replace(']', '&#093;', $text);
+        $text = str_replace('|', '&#124;', $text);
+        $text = preg_replace('/\r?\n/', '', $text);
+        $text = preg_replace('/<br(\s\/)?' . '>/i', '[br]', $text);
+        $text = preg_replace('/<p(\s\/)?' . '>/i', '[br]', $text);
+        $text = preg_replace('/(\[br\]\s*){10,}/i', '[br]', $text);
+        while (preg_match('/(<[^><]+)( lang|on|action|background|codebase|dynsrc|lowsrc)[^><]+/i', $text, $mat)) {
+            $text = str_replace($mat[0], $mat[1], $text);
+        }
+        while (preg_match('/(<[^><]+)(window\.|javascript:|js:|about:|file:|document\.|vbs:|cookie)([^><]*)/i', $text, $mat)) {
+            $text = str_replace($mat[0], $mat[1] . $mat[3], $text);
+        }
+        if (empty($tags)) {
+            $tags = 'table|td|th|tr|i|b|u|strong|img|p|br|div|strong|em|ul|ol|li|dl|dd|dt|a';
+        }
+        $text = preg_replace('/<(' . $tags . ')( [^><\[\]]*)>/i', '[\1\2]', $text);
+        $text = preg_replace('/<\/(' . $tags . ')>/Ui', '[/\1]', $text);
+        $text = preg_replace('/<\/?(html|head|meta|link|base|basefont|body|bgsound|title|style|script|form|iframe|frame|frameset|applet|id|ilayer|layer|name|script|style|xml)[^><]*>/i', '', $text);
+        while (preg_match('/<([a-z]+)[^><\[\]]*>[^><]*<\/\1>/i', $text, $mat)) {
+            $text = str_replace($mat[0], str_replace('>', ']', str_replace('<', '[', $mat[0])), $text);
+        }
+        while (preg_match('/(\[[^\[\]]*=\s*)(\"|\')([^\2=\[\]]+)\2([^\[\]]*\])/i', $text, $mat)) {
+            $text = str_replace($mat[0], $mat[1] . '|' . $mat[3] . '|' . $mat[4], $text);
+        }
+        while (preg_match('/\[[^\[\]]*(\"|\')[^\[\]]*\]/i', $text, $mat)) {
+            $text = str_replace($mat[0], str_replace($mat[1], '', $mat[0]), $text);
+        }
+        $text = str_replace('<', '&lt;', $text);
+        $text = str_replace('>', '&gt;', $text);
+        $text = str_replace('"', '&quot;', $text);
+        $text = str_replace('[', '<', $text);
+        $text = str_replace(']', '>', $text);
+        $text = str_replace('|', '"', $text);
+        $text = str_replace('  ', ' ', $text);
+        return $text;
+    }
+
+    public function ubb($Text) {
+        $Text = trim($Text);
+        $Text = preg_replace("/\\t/is", "  ", $Text);
+        $Text = preg_replace("/\[h1\](.+?)\[\/h1\]/is", "<h1>\\1</h1>", $Text);
+        $Text = preg_replace("/\[h2\](.+?)\[\/h2\]/is", "<h2>\\1</h2>", $Text);
+        $Text = preg_replace("/\[h3\](.+?)\[\/h3\]/is", "<h3>\\1</h3>", $Text);
+        $Text = preg_replace("/\[h4\](.+?)\[\/h4\]/is", "<h4>\\1</h4>", $Text);
+        $Text = preg_replace("/\[h5\](.+?)\[\/h5\]/is", "<h5>\\1</h5>", $Text);
+        $Text = preg_replace("/\[h6\](.+?)\[\/h6\]/is", "<h6>\\1</h6>", $Text);
+        $Text = preg_replace("/\[separator\]/is", "", $Text);
+        $Text = preg_replace("/\[center\](.+?)\[\/center\]/is", "<center>\\1</center>", $Text);
+        $Text = preg_replace("/\[url=http:\/\/([^\[]*)\](.+?)\[\/url\]/is", "<a href=\"http://\\1\" target=_blank>\\2</a>", $Text);
+        $Text = preg_replace("/\[url=([^\[]*)\](.+?)\[\/url\]/is", "<a href=\"http://\\1\" target=_blank>\\2</a>", $Text);
+        $Text = preg_replace("/\[url\]http:\/\/([^\[]*)\[\/url\]/is", "<a href=\"http://\\1\" target=_blank>\\1</a>", $Text);
+        $Text = preg_replace("/\[url\]([^\[]*)\[\/url\]/is", "<a href=\"\\1\" target=_blank>\\1</a>", $Text);
+        $Text = preg_replace("/\[img\](.+?)\[\/img\]/is", "<img src=\\1>", $Text);
+        $Text = preg_replace("/\[color=(.+?)\](.+?)\[\/color\]/is", "<font color=\\1>\\2</font>", $Text);
+        $Text = preg_replace("/\[size=(.+?)\](.+?)\[\/size\]/is", "<font size=\\1>\\2</font>", $Text);
+        $Text = preg_replace("/\[sup\](.+?)\[\/sup\]/is", "<sup>\\1</sup>", $Text);
+        $Text = preg_replace("/\[sub\](.+?)\[\/sub\]/is", "<sub>\\1</sub>", $Text);
+        $Text = preg_replace("/\[pre\](.+?)\[\/pre\]/is", "<pre>\\1</pre>", $Text);
+        $Text = preg_replace("/\[email\](.+?)\[\/email\]/is", "<a href='mailto:\\1'>\\1</a>", $Text);
+        $Text = preg_replace("/\[colorTxt\](.+?)\[\/colorTxt\]/eis", "color_txt('\\1')", $Text);
+        $Text = preg_replace("/\[emot\](.+?)\[\/emot\]/eis", "emot('\\1')", $Text);
+        $Text = preg_replace("/\[i\](.+?)\[\/i\]/is", "<i>\\1</i>", $Text);
+        $Text = preg_replace("/\[u\](.+?)\[\/u\]/is", "<u>\\1</u>", $Text);
+        $Text = preg_replace("/\[b\](.+?)\[\/b\]/is", "<b>\\1</b>", $Text);
+        $Text = preg_replace("/\[quote\](.+?)\[\/quote\]/is", " <div class='quote'><h5>引用:</h5><blockquote>\\1</blockquote></div>", $Text);
+        $Text = preg_replace("/\[code\](.+?)\[\/code\]/eis", "highlight_code('\\1')", $Text);
+        $Text = preg_replace("/\[php\](.+?)\[\/php\]/eis", "highlight_code('\\1')", $Text);
+        $Text = preg_replace("/\[sig\](.+?)\[\/sig\]/is", "<div class='sign'>\\1</div>", $Text);
+        $Text = preg_replace("/\\n/is", "<br/>", $Text);
+        return $Text;
+    }
+
+    public function cleanhtml($str, $length = 0, $suffix = true) {
+        $str = preg_replace("@<(.*?)>@is", "", $str);
+        if ($length > 0) {
+            $str = substr($str, 0, $length, 'utf-8', $suffix);
+        }
+        return $str;
+    }
+
+    public function remove_xss($val) {
+        $val = preg_replace('/([\x00-\x08,\x0b-\x0c,\x0e-\x19])/', '', $val);
+        $search = 'abcdefghijklmnopqrstuvwxyz';
+        $search .= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $search .= '1234567890!@#$%^&*()';
+        $search .= '~`";:?+/={}[]-_|\'\\';
+        for ($i = 0; $i < strlen($search); $i++) {
+            $val = preg_replace('/(&#[xX]0{0,8}' . dechex(ord($search[$i])) . ';?)/i', $search[$i], $val); // with a ;
+            $val = preg_replace('/(&#0{0,8}' . ord($search[$i]) . ';?)/', $search[$i], $val); // with a ;
+        }
+        $ra1 = array('javascript', 'vbscript', 'expression', 'applet', 'meta', 'xml', 'blink', 'link', 'style', 'script', 'embed', 'object', 'iframe', 'frame', 'frameset', 'ilayer', 'layer', 'bgsound', 'title', 'base');
+        $ra2 = array('onabort', 'onactivate', 'onafterprint', 'onafterupdate', 'onbeforeactivate', 'onbeforecopy', 'onbeforecut', 'onbeforedeactivate', 'onbeforeeditfocus', 'onbeforepaste', 'onbeforeprint', 'onbeforeunload', 'onbeforeupdate', 'onblur', 'onbounce', 'oncellchange', 'onchange', 'onclick', 'oncontextmenu', 'oncontrolselect', 'oncopy', 'oncut', 'ondataavailable', 'ondatasetchanged', 'ondatasetcomplete', 'ondblclick', 'ondeactivate', 'ondrag', 'ondragend', 'ondragenter', 'ondragleave', 'ondragover', 'ondragstart', 'ondrop', 'onerror', 'onerrorupdate', 'onfilterchange', 'onfinish', 'onfocus', 'onfocusin', 'onfocusout', 'onhelp', 'onkeydown', 'onkeypress', 'onkeyup', 'onlayoutcomplete', 'onload', 'onlosecapture', 'onmousedown', 'onmouseenter', 'onmouseleave', 'onmousemove', 'onmouseout', 'onmouseover', 'onmouseup', 'onmousewheel', 'onmove', 'onmoveend', 'onmovestart', 'onpaste', 'onpropertychange', 'onreadystatechange', 'onreset', 'onresize', 'onresizeend', 'onresizestart', 'onrowenter', 'onrowexit', 'onrowsdelete', 'onrowsinserted', 'onscroll', 'onselect', 'onselectionchange', 'onselectstart', 'onstart', 'onstop', 'onsubmit', 'onunload');
+        $ra = array_merge($ra1, $ra2);
+        $found = true; 
+        while ($found == true) {
+            $val_before = $val;
+            for ($i = 0; $i < sizeof($ra); $i++) {
+                $pattern = '/';
+                for ($j = 0; $j < strlen($ra[$i]); $j++) {
+                    if ($j > 0) {
+                        $pattern .= '(';
+                        $pattern .= '(&#[xX]0{0,8}([9ab]);)';
+                        $pattern .= '|';
+                        $pattern .= '|(&#0{0,8}([9|10|13]);)';
+                        $pattern .= ')*';
+                    }
+                    $pattern .= $ra[$i][$j];
+                }
+                $pattern .= '/i';
+                $replacement = substr($ra[$i], 0, 2) . '<x>' . substr($ra[$i], 2); // add in <> to nerf the tag
+                $val = preg_replace($pattern, $replacement, $val); // filter out the hex tags
+                if ($val_before == $val) {
+                    $found = false;
+                }
+            }
+        }
+        return $val;
+    }
+    
+    /**
+     * 把返回的数据集转换成Tree
+     * @access public
+     * @param array $list 要转换的数据集
+     * @param string $pid parent标记字段
+     * @param string $level level标记字段
+     * @return array
+     */
+    public function list_to_tree($list, $pk = 'id', $pid = 'pid', $child = '_child', $root = 0) {
+        $tree = array();
+        if (is_array($list)) {
+            $refer = array();
+            foreach ($list as $key => $data) {
+                $refer[$data[$pk]] = & $list[$key];
+            }
+            foreach ($list as $key => $data) {
+                $parentId = $data[$pid];
+                if ($root == $parentId) {
+                    $tree[] = & $list[$key];
+                } else {
+                    if (isset($refer[$parentId])) {
+                        $parent = & $refer[$parentId];
+                        $parent[$child][] = & $list[$key];
+                    }
+                }
+            }
+        }
+        return $tree;
+    }
+    
+    /**
+     * 对查询结果集进行排序
+     * @access public
+     * @param array $list 查询结果
+     * @param string $field 排序的字段名
+     * @param array $sortby 排序类型
+     * asc正向排序 desc逆向排序 nat自然排序
+     * @return array
+     */
+    public function list_sort_by($list, $field, $sortby = 'asc') {
+        if (is_array($list)) {
+            $refer = $resultSet = array();
+            foreach ($list as $i => $data)
+                $refer[$i] = &$data[$field];
+            switch ($sortby) {
+                case 'asc': // 正向排序
+                    asort($refer);
+                    break;
+                case 'desc':// 逆向排序
+                    arsort($refer);
+                    break;
+                case 'nat': // 自然排序
+                    natcasesort($refer);
+                    break;
+            }
+            foreach ($refer as $key => $val)
+                $resultSet[] = &$list[$key];
+            return $resultSet;
+        }
+        return false;
+    }
+    
+    /**
+     * 在数据列表中搜索
+     * @access public
+     * @param array $list 数据列表
+     * @param mixed $condition 查询条件
+     * 支持 array('name'=>$value) 或者 name=$value
+     * @return array
+     */
+    public function list_search($list, $condition) {
+        if (is_string($condition))
+            parse_str($condition, $condition);
+        $resultSet = array();
+        foreach ($list as $key => $data) {
+            $find = false;
+            foreach ($condition as $field => $value) {
+                if (isset($data[$field])) {
+                    if (0 === strpos($value, '/')) {
+                        $find = preg_match($value, $data[$field]);
+                    } elseif ($data[$field] == $value) {
+                        $find = true;
+                    }
+                }
+            }
+            if ($find)
+                $resultSet[] = &$list[$key];
+        }
+        return $resultSet;
+    }
+
+    /**
+     * 两个数组的笛卡尔积
+     *
+     * @param unknown_type $arr1
+     * @param unknown_type $arr2
+     */
+    public function combineArray($arr1,$arr2) {         
+        $result = array();
+        foreach ($arr1 as $item1) 
+        {
+            foreach ($arr2 as $item2) 
+            {
+                $temp = $item1;
+                $temp[] = $item2;
+                $result[] = $temp;
+            }
+        }
+        return $result;
+    }
+    /**
+     * @param $arr
+     * @param $key_name
+     * @return array
+     * 将数据库中查出的列表以指定的 id 作为数组的键名 
+     */
+    public function convert_arr_key($arr, $key_name)
+    {
+        $arr2 = array();
+        foreach($arr as $key => $val){
+            $arr2[$val[$key_name]] = $val;        
+        }
+        return $arr2;
+    }
+
+    /**
+     * 所有数组的笛卡尔积
+     *
+     * @param unknown_type $data
+     */
+    public function combineDika() {
+        $data = func_get_args();
+        $data = current($data);
+        $cnt = count($data);
+        $result = array();
+
+            $arr1 = array_shift($data);
+        foreach($arr1 as $key=>$item) 
+        {
+            $result[] = array($item);
+        }       
+
+        foreach($data as $key=>$item) 
+        {                                
+            $result = $this->combineArray($result,$item);
+        }
+        return $result;
+    }
+
+    /**
+     * @param $arr
+     * @param $key_name
+     * @param $key_name2
+     * @return array
+     * 将数据库中查出的列表以指定的 id 作为数组的键名 数组指定列为元素 的一个数组
+     */
+    public function get_id_val($arr, $key_name,$key_name2){
+        $arr2 = array();
+        foreach($arr as $key => $val){
+            $arr2[$val[$key_name]] = $val[$key_name2];
+        }
+        return $arr2;
+    }
+
+
+    public function array_comparison($v1, $v2) { //比较数组
+        if ($v1 === $v2) {
+            return 0;
+        }
+        if ($v1 > $v2) {
+            return 1;
+        } else {
+            return -1;
+        }
+    }
 
 }

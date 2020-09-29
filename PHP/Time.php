@@ -199,4 +199,128 @@ class Time{
         // }
         return $showtime;
     }
+
+    //时间格式化2
+    public function formatTime($time) {
+
+        $t = time() - $time;
+        $mon = (int) ($t / (86400 * 30));
+        if ($mon >= 12) {
+            return '一年前';
+        }
+        if ($mon >= 6) {
+            return '半年前';
+        }
+        if ($mon >= 3) {
+            return '三个月前';
+        }
+        if ($mon >= 2) {
+            return '二个月前';
+        }
+        if ($mon >= 1) {
+            return '一个月前';
+        }
+        $day = (int) ($t / 86400);
+        if ($day >= 1) {
+            return $day . '天前';
+        }
+        $h = (int) ($t / 3600);
+        if ($h >= 1) {
+            return $h . '小时前';
+        }
+        $min = (int) ($t / 60);
+        if ($min >= 1) {
+            return $min . '分前';
+        }
+        return '刚刚';
+    }
+
+    //时间格式化2
+    public function pincheTime($time) {
+        $today  =  strtotime(date('Y-m-d')); //今天零点
+        $here  =  (int)(($time - $today)/86400) ; 
+        if($here==1){
+            return '明天';  
+        }
+        if($here==2) {
+            return '后天';  
+        }
+        if($here>=3 && $here<7){
+            return $here.'天后';  
+        }
+        if($here>=7 && $here<30){
+            return '一周后';  
+        }
+        if($here>=30 && $here<365){
+            return '一个月后';  
+        }
+        if($here>=365){
+            $r = (int)($here/365).'年后'; 
+            return   $r;
+        }
+        return '今天';
+    }
+
+    //时间格式化2
+    public function ele_wait_Time($time) {
+        $mon = (int) ($time / (86400 * 30));
+        if ($mon >= 12) {
+            return '一年前';
+        }
+        if ($mon >= 6) {
+            return '半年前';
+        }
+        if ($mon >= 3) {
+            return '三个月前';
+        }
+        if ($mon >= 2) {
+            return '二个月前';
+        }
+        if ($mon >= 1) {
+            return '一个月前';
+        }
+        $day = (int) ($time / 86400);
+        if ($day >= 1) {
+            return $day . '天';
+        }
+        $h = (int) ($time / 3600);
+        if ($h >= 2) {
+            return $h . '小时';
+        }
+        $min = (int) ($time / 60);
+        if ($min >= 1) {
+            return $min . '分钟';
+        }
+        return '0分钟';
+    }
+
+    /**
+     * 检查是否为一个合法的时间格式
+     *
+     * @access  public
+     * @param   string  $time
+     * @return  void
+     */
+    public function isTime($time) {
+        $pattern = '/[\d]{4}-[\d]{1,2}-[\d]{1,2}\s[\d]{1,2}:[\d]{1,2}:[\d]{1,2}/';
+
+        return preg_match($pattern, $time);
+    }
+
+    /**
+     * 判断一个字符串是否是一个合法时间
+     *
+     * @param string $string
+     * @return boolean
+     */
+    public function isDate($string) {
+        if (preg_match('/^\d{4}-[0-9][0-9]-[0-9][0-9]$/', $string)) {
+            $date_info = explode('-', $string);
+            return checkdate(ltrim($date_info[1], '0'), ltrim($date_info[2], '0'), $date_info[0]);
+        }
+        if (preg_match('/^\d{8}$/', $string)) {
+            return checkdate(ltrim(substr($string, 4, 2), '0'), ltrim(substr($string, 6, 2), '0'), substr($string, 0, 4));
+        }
+        return false;
+    }
 }
