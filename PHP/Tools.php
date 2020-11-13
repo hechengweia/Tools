@@ -1261,4 +1261,47 @@ public static function randSole($type = 0,$length = 18,$time=0){
         }
     }
 
+    // 对比传递参数与请求参数不能为空
+    public  function  notEmpty(...$fields)
+	{
+		array_map(function ($filed){
+            // 获取框架的请求
+			$value = request($filed);
+
+			if (! $value) {
+
+				$this->fail_message($value.'必填项不能为空');
+			}
+		},$fields);
+
+		return $this;
+    }
+    
+    function fail_message($message = '操作失败')
+	{
+		return $this->fail([],$message);
+    }
+    
+    function fail($data = [], $message = '操作失败', $code = 422)
+	{
+		return $this->response($message, $data, $code);
+    }
+    
+    function response($message = '', $data = [], $code = 200)
+	{
+
+		$result['data'] = $data;
+
+
+	 	$result['code'] =$code;
+
+	 	$result['message'] = $message;
+
+		header('Content-Type:application/json; charset=utf-8');
+
+		exit(json_encode($result));
+	}
+
+
+   
 }
